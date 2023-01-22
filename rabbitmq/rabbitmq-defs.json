@@ -1,0 +1,32 @@
+{
+    "exchanges": [
+      {
+        "name": "PERFORMED_TASK",
+        "vhost": "/",
+        "type": "fanout",
+        "durable": true,
+        "auto_delete": false,
+        "internal": false,
+        "arguments": {}
+      }
+    ],
+    "queues": [
+      {
+        "name": "PERFORMED_TASK",
+        "vhost": "/",
+        "durable": true,
+        "auto_delete": false,
+        "arguments": {}
+      }
+    ],
+    "bindings": [
+      {
+        "source": "PERFORMED_TASK",
+        "vhost": "/",
+        "destination": "PERFORMED_TASK",
+        "destination_type": "queue",
+        "routing_key": "*",
+        "arguments": {}
+      }
+    ]
+  }

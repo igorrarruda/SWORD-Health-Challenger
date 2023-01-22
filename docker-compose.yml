@@ -1,0 +1,116 @@
+version: '3.3'
+services:
+  proxy:
+    image: nginx:alpine
+    container_name: proxy
+    ports:
+      - '80:8080'
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/nginx.conf
+    restart: 'unless-stopped'
+    networks:
+      - frontend
+    links:
+      - server
+    depends_on:
+      - server
+  server:
+    build:
+      context: ./
+      target: development
+      dockerfile: Dockerfile
+    container_name: server
+    ports:
+      - '8000:8000'
+    volumes:
+      # - ./:/app
+      - /app/node_modules
+    restart: 'unless-stopped'
+    networks:
+      - backend
+      - frontend
+    links:
+      - database
+      - rabbitmq
+    depends_on:
+      - database
+      - rabbitmq
+    command:
+      [
+        "./wait-for-it.sh",
+        "rabbitmq:5672",
+        "--",
+        "npm",
+        "run",
+        "dev"
+      ]
+  migration:
+    build:
+      context: .
+      target: default
+    container_name: migration
+    command:
+      [
+        "./wait-for-it.sh",
+        "database:3306",
+        "--",
+        "npm",
+        "run",
+        "migration:run"
+      ]
+    links:
+      - database
+    depends_on:
+      - database
+    networks:
+      - backend
+  database:
+    image: mysql:5.7
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    container_name: database
+    environment:
+      MYSQL_DATABASE: 'task'
+      MYSQL_USER: 'myuser'
+      MYSQL_PASSWORD: 'pwduser'
+      MYSQL_ROOT_PASSWORD: 'pwdroot'
+      MYSQL_ROOT_HOST: '%'
+    ports:
+      - '3306:3306'
+    volumes:
+      - my-db:/var/lib/mysql
+    networks:
+      - backend
+  rabbitmq:
+    image: "rabbitmq:3.8-management-alpine"
+    hostname: rabbitmq
+    container_name: rabbitmq
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    volumes:
+      - type: bind
+        source: ./rabbitmq/rabbitmq-enabled-plugins
+        target: /etc/rabbitmq/enabled_plugins
+      - type: bind
+        source: ./rabbitmq/rabbitmq.conf
+        target: /etc/rabbitmq/rabbitmq.conf
+      - type: bind
+        source: ./rabbitmq/rabbitmq-defs.json
+        target: /etc/rabbitmq/rabbitmq-defs.json
+      - "./.rabbitmq_data:/var/lib/rabbitmq/mnesia"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+  frontend:
+    driver: bridge
+
+volumes:
+  my-db:
